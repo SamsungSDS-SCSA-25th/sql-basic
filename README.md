@@ -491,4 +491,161 @@ LEFT JOIN employees m ON e.manager_id = m.employee_id;
 
 ---
 
+# 서브쿼리 (Subquery)
 
+## 1) 서브쿼리란?
+
+* **쿼리 안의 쿼리**. 괄호 `()`의 SELECT가 먼저 실행되어 **결과값**을 바깥 쿼리가 사용.
+* JOIN이 “가로 확장(수평 결합)”이라면, 서브쿼리는 **논리 단계를 안쪽으로 구성(수직)**.
+
+---
+
+## 2) 유형 by 반환 형태 & 사용 위치
+
+| 유형                  | 반환             | 주 사용 위치                     | 핵심 연산자/구문                             | 주요 용도              |
+| ------------------- | -------------- | --------------------------- | ------------------------------------- | ------------------ |
+| **스칼라**             | 1행 1열          | `SELECT`, `WHERE`, `HAVING` | `=`, `>`, `<`, `>=`, `<=`, `<>`       | 단일 값 비교/표시         |
+| **다중 행**            | N행 1열          | `WHERE`, `HAVING`           | `IN`, `NOT IN`, `ANY`, `ALL`          | 목록과 비교             |
+| **다중 컬럼(행 서브쿼리)**   | 1행 N열 또는 N행 N열 | `WHERE`, `HAVING`           | `(c1,c2) = (...)`, `(c1,c2) IN (...)` | 복수 컬럼 **쌍(튜플)** 비교 |
+| **테이블 서브쿼리(인라인 뷰)** | 테이블 형태         | `FROM (...) AS alias`       | `JOIN` 대상                             | 집계·가공 결과를 다시 활용    |
+
+> `FROM` 서브쿼리는 **반드시 별칭** 필요.
+
+---
+
+## 3) 대표 패턴 (필수 예시)
+
+### 3-1) 스칼라 (단일 값)
+
+```sql
+-- 평균보다 비싼 상품
+SELECT name, price
+FROM products
+WHERE price > (SELECT AVG(price) FROM products);
+```
+
+### 3-2) 다중 행 + IN
+
+```sql
+-- 전자기기 상품들만 주문 내역 조회
+SELECT *
+FROM orders
+WHERE product_id IN (
+  SELECT product_id FROM products WHERE category = '전자기기'
+);
+```
+
+### 3-3) ANY / ALL (필요 시 MIN/MAX로 대체)
+
+```sql
+-- 전자기기 중 '어느 하나'보다라도 비쌈 = MIN 가격보다 큼
+SELECT name, price
+FROM products
+WHERE price > ANY (SELECT price FROM products WHERE category='전자기기');
+-- 동일 의미(가독성↑)
+WHERE price > (SELECT MIN(price) FROM products WHERE category='전자기기');
+
+-- 전자기기 '모두'보다 비쌈 = MAX 가격보다 큼
+WHERE price > ALL (SELECT price FROM products WHERE category='전자기기');
+-- 동일 의미
+WHERE price > (SELECT MAX(price) FROM products WHERE category='전자기기');
+```
+
+### 3-4) 다중 컬럼(튜플) 비교
+
+```sql
+-- (user_id, status)가 동일한 주문 찾기
+SELECT order_id, user_id, status
+FROM orders
+WHERE (user_id, status) = (
+  SELECT user_id, status FROM orders WHERE order_id = 3
+);
+
+-- 여러 쌍과 비교(다중 행)
+WHERE (user_id, order_date) IN (
+  SELECT user_id, MIN(order_date) FROM orders GROUP BY user_id
+);
+```
+
+### 3-5) EXISTS / NOT EXISTS (상관 서브쿼리)
+
+```sql
+-- 한 번이라도 주문된 상품
+SELECT p.product_id, p.name, p.price
+FROM products p
+WHERE EXISTS (
+  SELECT 1 FROM orders o WHERE o.product_id = p.product_id
+);
+
+-- 한 번도 주문되지 않은 상품
+WHERE NOT EXISTS (
+  SELECT 1 FROM orders o WHERE o.product_id = p.product_id
+);
+```
+
+### 3-6) SELECT 절 스칼라 서브쿼리
+
+```sql
+-- 각 상품 + 전체 평균가 컬럼 추가(비상관)
+SELECT name, price,
+       (SELECT AVG(price) FROM products) AS avg_price
+FROM products;
+
+-- 각 상품별 주문 횟수(상관)
+SELECT p.product_id, p.name, p.price,
+       (SELECT COUNT(*) FROM orders o WHERE o.product_id = p.product_id) AS order_count
+FROM products p;
+```
+
+### 3-7) FROM 절 인라인 뷰
+
+```sql
+-- 카테고리별 최고가 상품 찾기
+SELECT p.product_id, p.name, p.price
+FROM products p
+JOIN (
+  SELECT category, MAX(price) AS max_price
+  FROM products
+  GROUP BY category
+) AS cmp
+ON p.category = cmp.category AND p.price = cmp.max_price;
+```
+
+---
+
+## 4) 상관 vs 비상관 요약
+
+* **비상관**: 서브쿼리 **한 번** 실행 → 결과를 모든 행에 재사용.
+* **상관**: 바깥 행 **마다** 서브쿼리 실행(반복). 가독성↑ 가능하지만 **성능 주의**.
+
+---
+
+## 5) IN vs EXISTS (실무 감각)
+
+| 비교     | IN                | EXISTS                          |
+| ------ | ----------------- | ------------------------------- |
+| 방식     | 결과 **목록**을 만들어 비교 | 행 **존재 여부**만 확인(찾자마자 멈춤)        |
+| 유리한 경우 | 서브쿼리 결과가 **작을 때** | 서브쿼리 테이블이 **클 때**, 인덱스 적중 시 효율적 |
+
+> 대안: 경우에 따라 JOIN, `LEFT JOIN + GROUP BY`가 더 빠름.
+
+---
+
+## 6) 흔한 오류 & 팁
+
+* 스칼라 서브쿼리에 **여러 행**이 나오면 에러(`Subquery returns more than 1 row`).
+* 다중 컬럼 `=` 비교는 **서브쿼리가 반드시 1행**이어야 함. 여러 행이면 `IN`(튜플) 사용.
+* `FROM (...)`엔 **별칭 필수**.
+* 복잡/고비용 상관 서브쿼리는 **JOIN 재작성** 고려.
+* 성능은 **추측 금지 → `EXPLAIN`/실측**.
+
+---
+
+## 7) JOIN vs 서브쿼리 선택 가이드
+
+1. **JOIN 우선** 검토(일반적으로 성능·최적화 유리).
+2. 가독성이 훨씬 좋아지거나 단계적 사고 표현이 명확하면 **서브쿼리**.
+3. 대용량 존재 여부 확인은 **EXISTS/NOT EXISTS**.
+4. 항상 **실행 계획**과 **시간**으로 검증.
+
+---
