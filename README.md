@@ -649,3 +649,57 @@ ON p.category = cmp.category AND p.price = cmp.max_price;
 4. 항상 **실행 계획**과 **시간**으로 검증.
 
 ---
+
+# UNION / UNION ALL
+
+## 개념
+
+* **UNION**: 여러 `SELECT` 결과를 **수직으로 합치기(행 추가)** + **중복 제거**
+* **UNION ALL**: **중복 제거 없이** 그대로 합치기 → 보통 **더 빠름**
+
+## 규칙(공통)
+
+* 모든 `SELECT`의 **컬럼 개수 동일**.
+* 같은 위치의 컬럼은 **호환 타입**이어야 함.
+* 최종 컬럼명은 **첫 번째 SELECT**의 컬럼/별칭을 따름.
+
+## 선택 가이드
+
+| 상황            | 권장          |
+| ------------- | ----------- |
+| 중복 제거 필요      | `UNION`     |
+| 성능 우선 / 중복 허용 | `UNION ALL` |
+
+## 정렬(ORDER BY)
+
+* 전체 쿼리 **마지막에 한 번만** 작성.
+* 정렬 기준은 **첫 번째 SELECT**의 컬럼명/별칭만 사용 가능.
+
+## 예시
+
+```sql
+-- 중복 제거 통합
+SELECT name, city FROM customers_kr
+UNION
+SELECT name, city FROM customers_jp;
+
+-- 중복 포함(빠름)
+SELECT name, city FROM customers_kr
+UNION ALL
+SELECT name, city FROM customers_jp;
+
+-- 정렬: 첫 SELECT의 별칭 사용
+SELECT name AS customer_name, city FROM customers_kr
+UNION ALL
+SELECT name, city FROM customers_jp
+ORDER BY customer_name;
+```
+
+## 팁 & 주의
+
+* `UNION`은 내부적으로 **정렬/비교** 발생 → **느릴 수 있음**.
+* 컬럼 타입이 애매하면 **명시적 캐스팅** 권장.
+* 필요한 경우만 `UNION` 사용, **기본은 `UNION ALL`** 로 시작 후 중복 제거가 진짜 필요한지 확인.
+
+---
+
