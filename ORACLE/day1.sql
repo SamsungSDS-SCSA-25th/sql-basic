@@ -1,0 +1,73 @@
+-- 문제1
+SELECT EMPNO,
+       ENAME,
+       SAL
+FROM EMP
+WHERE SAL = 10000
+   OR SAL = 14000;
+
+-- 문제2
+SELECT *
+FROM EMP
+WHERE ENAME LIKE '%e%' OR ENAME LIKE '%E%';
+
+-- 문제3
+SELECT EMPNO,
+       ENAME
+FROM EMP
+WHERE ENAME LIKE 'J%'
+   OR ENAME LIKE '%n%';
+
+-- 문제4
+SELECT EMPNO,
+       DEPTNO,
+       ENAME,
+       SAL,
+       COMM
+FROM EMP
+WHERE DEPTNO NOT IN (30, 60, 90);
+
+-- 문제8
+SELECT *
+FROM EMP
+WHERE ENAME LIKE '%E%'
+   OR ENAME LIKE '%e%';
+
+-- 문제9
+SELECT *
+FROM EMP
+WHERE INSTR(ENAME, 'E') > 0
+   OR INSTR(ENAME, 'e') > 0;
+
+-- 문제10
+SELECT EMPNO,
+       SAL,
+       ROUND((COMM / SAL), 4)                AS COMM_RATE,
+       ROUND((SAL * (COMM / SAL)) / 1000, 1) AS REAL_SAL
+FROM EMP
+WHERE COMM IS NOT NULL;
+
+-- 문제11
+SELECT EMPNO,
+       ENAME,
+       SAL,
+       CASE
+           WHEN SAL >= 20000 THEN 'A'
+           WHEN SAL >= 10000 THEN 'B'
+           WHEN SAL >= 5000 THEN 'C'
+           ELSE 'D'
+           END AS SAL_RANK
+FROM EMP;
+
+-- 문제12
+SELECT EMPNO,
+       ENAME,
+       SAL,
+       NVL2(MGR, TO_CHAR(mgr), '관리자 없음') AS MGR_ENAME
+FROM EMP;
+
+-- 문제13
+SELECT EMPNO,
+       HIREDATE,
+       EXTRACT(YEAR FROM SYSDATE) - EXTRACT(YEAR FROM hiredate) AS year_diff
+FROM EMP
