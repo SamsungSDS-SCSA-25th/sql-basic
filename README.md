@@ -703,3 +703,100 @@ ORDER BY customer_name;
 
 ---
 
+# CASE문
+
+## 1️⃣ 개념
+
+* `CASE` 문은 **조건에 따라 결과를 다르게 표현**하는 SQL의 조건문.
+* 데이터를 **동적으로 가공**하거나 **새로운 의미(분류·라벨)**를 부여할 때 사용.
+* 두 가지 형태 존재:
+
+    * **단순 CASE 문**: 특정 컬럼 값 비교 (A면 X, B면 Y)
+    * **검색 CASE 문**: `WHEN` 절마다 독립 조건 사용 (범위·복합조건 처리)
+
+```sql
+-- 단순 CASE 문
+CASE grade
+  WHEN 'A' THEN '우수'
+  WHEN 'B' THEN '양호'
+  ELSE '보통'
+END
+
+-- 검색 CASE 문
+CASE
+  WHEN price >= 100000 THEN '고가'
+  WHEN price >= 50000 THEN '중가'
+  ELSE '저가'
+END
+```
+
+> 위에서 아래로 평가, **첫 TRUE에서 종료**.
+
+---
+
+## 2️⃣ 활용 위치
+
+* `SELECT` : 데이터 변환, 라벨 부여
+* `ORDER BY` : 사용자 정의 정렬
+* `GROUP BY` : 그룹 기준 생성
+* `WHERE` : 조건부 필터링
+
+---
+
+## 3️⃣ CASE + GROUP BY (그룹핑)
+
+* **단계 1:** `CASE`로 분류 라벨 부여
+* **단계 2:** 라벨로 `GROUP BY` 후 집계
+
+```sql
+SELECT
+  CASE
+    WHEN YEAR(birth_date) >= 1990 THEN '1990년대생'
+    WHEN YEAR(birth_date) >= 1980 THEN '1980년대생'
+    ELSE '그 이전'
+  END AS generation,
+  COUNT(*) AS cnt
+FROM users
+GROUP BY generation;
+```
+
+---
+
+## 4️⃣ CASE + 조건부 집계 (Pivot 형태)
+
+* `CASE`를 **집계 함수 내부**에 넣어 조건별 합계나 건수 계산.
+* 테이블을 한 번만 읽어 **효율적 통계 처리**.
+
+```sql
+-- COUNT 조건부 집계
+SELECT
+  SUM(CASE WHEN gender='M' THEN 1 ELSE 0 END) AS male_cnt,
+  SUM(CASE WHEN gender='F' THEN 1 ELSE 0 END) AS female_cnt
+FROM users;
+
+-- COUNT + NULL 패턴
+SELECT
+  COUNT(CASE WHEN status='완료' THEN 1 END) AS done_cnt,
+  COUNT(CASE WHEN status='대기' THEN 1 END) AS pending_cnt
+FROM orders;
+```
+
+> `SUM(CASE ...)` → 참이면 1, 거짓이면 0 → 합계로 개수 계산.
+> `COUNT(CASE ...)` → 참이면 1, 거짓이면 NULL → NULL 제외 후 개수 계산.
+
+---
+
+## ✅ 정리
+
+| 구분               | 설명                 |
+| ---------------- | ------------------ |
+| **단순 CASE**      | 컬럼 값 비교, 단일 기준 분류  |
+| **검색 CASE**      | 다중 조건(범위, 복합조건) 평가 |
+| **GROUP BY와 함께** | 라벨로 그룹화 및 통계       |
+| **집계함수 내부**      | 피벗형 조건부 합계 계산      |
+
+💡 **핵심 요약:**
+
+> `CASE`는 SQL의 ‘if-else’.
+> 조건에 따라 **표현·정렬·그룹·집계**를 자유롭게 제어한다.
+
