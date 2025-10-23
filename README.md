@@ -969,3 +969,88 @@ CREATE INDEX idx_user_age_desc ON users(age DESC);
 
 > 💡 **핵심:** 인덱스는 ‘검색 속도 향상 도구’.
 > 자주 검색·정렬되는 컬럼에만 전략적으로 적용하자.
+
+---
+
+# Index 심화
+
+## 1️⃣ 옵티마이저와 인덱스 선택
+
+* **옵티마이저**는 쿼리 실행 시 **인덱스 사용 vs 전체 스캔(Full Table Scan)** 을 비교해 더 효율적인 방식을 선택.
+* 전체 데이터의 약 **20~25% 이상**을 읽는다면 인덱스보다 **풀 스캔이 더 빠를 수 있음.**
+* 데이터가 매우 적거나 인덱스 탐색 비용이 높을 경우에도 풀 스캔을 선택.
+
+---
+
+## 2️⃣ 커버링 인덱스 (Covering Index)
+
+* 쿼리에 필요한 **모든 컬럼을 포함한 인덱스** → 테이블 접근 없이 인덱스만으로 조회 가능.
+* 랜덤 I/O 없이 **성능 향상**, `EXPLAIN` 의 `Extra`에 `Using index` 표시.
+* 단점: 인덱스 크기 증가, `INSERT/UPDATE/DELETE` 성능 저하.
+
+```sql
+CREATE INDEX idx_covering ON orders(user_id, order_date, total_amount);
+SELECT user_id, order_date, total_amount FROM orders WHERE user_id = 10;
+```
+
+---
+
+## 3️⃣ 복합 인덱스 (Composite Index)
+
+### 🔹 기본 개념
+
+* 2개 이상의 컬럼을 묶은 인덱스.
+* **컬럼 순서가 중요** — 첫 번째 컬럼부터 차례대로 조건에 사용되어야 함 (**왼쪽 접두어 규칙**).
+
+```sql
+CREATE INDEX idx_user_age_city ON users(age, city);
+-- ✅ 효율적: 첫 번째 컬럼 사용
+SELECT * FROM users WHERE age = 30;
+-- ✅ 효율적: 앞뒤 모두 사용
+SELECT * FROM users WHERE age = 30 AND city = '서울';
+-- ❌ 비효율적: 두 번째 컬럼만 사용
+SELECT * FROM users WHERE city = '서울';
+```
+
+---
+
+## 4️⃣ 복합 인덱스 활용 규칙
+
+1. **왼쪽 접두어 규칙**: 인덱스는 정의된 순서대로만 사용.
+2. **등호(=) 조건은 앞으로, 범위(>, <, BETWEEN)는 뒤로.**
+3. **ORDER BY 도 인덱스 순서와 일치해야** `filesort` 발생 X.
+
+> ⚠️ 범위 조건 뒤의 컬럼은 인덱스 효과 상실 → 가능한 `IN` 으로 대체.
+
+```sql
+-- 범위 조건으로 인덱스 일부만 사용
+SELECT * FROM users WHERE age >= 30 AND city = '서울';  -- age가 범위 조건 → city 인덱스 효율 ↓
+
+-- IN 사용으로 개선
+SELECT * FROM users WHERE age IN (30,31,32) AND city = '서울';  -- 옵티마이저가 동등 비교로 처리
+```
+
+---
+
+## 5️⃣ 인덱스 설계 가이드라인
+
+| 항목                     | 설명                        |
+| ---------------------- | ------------------------- |
+| **카디널리티(Cardinality)** | 중복이 적고 고유값이 많은 컬럼에 인덱스 생성 |
+| **WHERE 사용 컬럼**        | 자주 조건 검색에 사용되는 컬럼         |
+| **JOIN 키 컬럼**          | 테이블 연결(FK) 시 사용되는 컬럼      |
+| **ORDER BY 컬럼**        | 정렬 최적화 및 `filesort` 방지    |
+
+> 불필요한 인덱스는 주기적으로 제거하여 성능 유지.
+
+---
+
+## 6️⃣ 인덱스의 단점
+
+* **저장 공간 증가**: 별도 파일로 저장되어 디스크 사용량 증가.
+* **쓰기 성능 저하**: 데이터 변경 시 인덱스도 갱신 → `INSERT/UPDATE/DELETE` 느려짐.
+* **인덱스 컬럼 UPDATE 부하**: 인덱스 재정렬 필요로 성능 저하.
+
+> 💡 **실무 팁:**
+> 읽기 중심 서비스 → 인덱스 적극 활용
+> 쓰기 중심 서비스 → 최소한의 핵심 인덱스만 유지
