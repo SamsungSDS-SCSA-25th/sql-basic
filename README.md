@@ -1054,3 +1054,92 @@ SELECT * FROM users WHERE age IN (30,31,32) AND city = '서울';  -- 옵티마�
 > 💡 **실무 팁:**
 > 읽기 중심 서비스 → 인덱스 적극 활용
 > 쓰기 중심 서비스 → 최소한의 핵심 인덱스만 유지
+
+---
+
+# SQL 데이터 무결성 - 제약조건 (DDL - CREATE)
+
+## 1️⃣ 데이터 무결성의 개념
+
+* **데이터 무결성(Data Integrity)**: 데이터의 **정확성·일관성·유효성**을 유지하려는 성질.
+* 데이터베이스의 핵심 역할은 **'잘못된 데이터 입력 방지'**.
+* 잘못된 데이터는 잘못된 의사결정(Garbage In, Garbage Out)을 초래.
+* 이를 위해 컬럼 단위로 규칙을 강제하는 장치가 **제약 조건(Constraints)**.
+
+---
+
+## 2️⃣ 기본 제약 조건 (Column-level Constraints)
+
+| 제약 조건           | 설명                                       |
+| --------------- | ---------------------------------------- |
+| **NOT NULL**    | 필수 정보 누락 방지 (`NULL` 입력 불가)               |
+| **UNIQUE**      | 중복 데이터 방지 (모든 값은 고유해야 함)                 |
+| **PRIMARY KEY** | 테이블의 대표 키 (`NOT NULL + UNIQUE`, 테이블당 1개) |
+| **DEFAULT**     | 값이 없을 경우 자동으로 기본값 지정                     |
+
+```sql
+CREATE TABLE users (
+  user_id INT PRIMARY KEY,
+  email VARCHAR(100) UNIQUE,
+  name VARCHAR(50) NOT NULL,
+  status VARCHAR(20) DEFAULT 'active'
+);
+```
+
+---
+
+## 3️⃣ 외래 키 제약 조건 (Referential Integrity)
+
+* **Foreign Key**: 두 테이블 간의 **관계 무결성**을 보장.
+* 부모 테이블에 없는 값을 자식 테이블에 저장하거나, 참조 중인 부모 데이터를 삭제/수정할 수 없음.
+
+| 옵션           | 동작 설명                           |
+| ------------ | ------------------------------- |
+| **RESTRICT** | 자식 데이터 존재 시 부모 삭제/수정 불가 (기본값)   |
+| **CASCADE**  | 부모 변경/삭제 시 자식도 자동 변경/삭제         |
+| **SET NULL** | 부모 변경/삭제 시 자식 FK 값을 `NULL` 로 변경 |
+
+```sql
+CREATE TABLE orders (
+  order_id INT PRIMARY KEY,
+  user_id INT,
+  FOREIGN KEY (user_id)
+    REFERENCES users(user_id)
+    ON DELETE CASCADE
+    ON UPDATE SET NULL
+);
+```
+
+> ⚠️ `CASCADE` 는 편리하지만, 실수 시 대량 삭제 위험 → **신중히 사용.**
+
+---
+
+## 4️⃣ CHECK 제약 조건 (값의 유효성 검증)
+
+* **비즈니스 규칙**을 직접 DB 레벨에서 강제.
+* `INSERT` / `UPDATE` 시 조건이 `TRUE`가 아니면 오류 발생.
+
+```sql
+CREATE TABLE products (
+  price DECIMAL(10,2) CHECK (price >= 0),
+  discount_rate INT CHECK (discount_rate BETWEEN 0 AND 100)
+);
+```
+
+> 예시: 가격은 0 이상, 할인율은 0~100 사이만 허용.
+
+---
+
+## ✅ 핵심 요약
+
+| 항목                        | 목적               |
+| ------------------------- | ---------------- |
+| **NOT NULL / UNIQUE**     | 데이터 정확성 보장       |
+| **PRIMARY / FOREIGN KEY** | 데이터 간 관계 일관성 유지  |
+| **CHECK / DEFAULT**       | 데이터 유효성 및 기본값 관리 |
+
+💡 **실무 팁:**
+
+> 1. DB는 잘못된 입력을 방지하는 **마지막 방어선**이다.
+> 2. 실무에서는 애플리케이션 레벨에서 예외처리를 통해 데이터 유효성을 검사한다.
+> 3. DB의 CHECK는 금액이 0이 될 수 없는 것과 같이 정말 필수불가결한 경우에 사용한다.
