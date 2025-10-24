@@ -1,0 +1,23 @@
+-- CREATE
+CREATE TABLE ORDER_INFO
+(
+    order_no NUMBER
+        CONSTRAINT order_no_pk PRIMARY KEY,
+    order_dt DATE
+        CONSTRAINT order_dt_nn NOT NULL,
+    order_id VARCHAR2(10)
+);
+
+-- ALTER
+ALTER TABLE ORDER_INFO
+    ADD CONSTRAINT order_id_fk
+        FOREIGN KEY (order_id) REFERENCES CUSTOMER (customer_id);
+
+-- column 수준에서 CONSTRAINT는 MODIFY
+ALTER TABLE ORDER_INFO
+MODIFY (order_id VARCHAR2(10) NOT NULL);
+
+-- 테이블 복사
+CREATE TABLE ORDER_INFO_COPY AS
+    (SELECT *
+     FROM ORDER_INFO);

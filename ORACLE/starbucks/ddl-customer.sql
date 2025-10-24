@@ -1,0 +1,12 @@
+-- CREATE TABLE
+CREATE TABLE CUSTOMER
+(
+    customer_id     VARCHAR2(10)
+        CONSTRAINT PK_CUSTOMER PRIMARY KEY,
+    customer_name   VARCHAR2(20)
+        CONSTRAINT UQ_NN_CUSTOMER_NAME UNIQUE NOT NULL,
+    customer_email  VARCHAR2(20)
+        CONSTRAINT NN_CUSTOMER_EMAIL NOT NULL,
+    customer_gender VARCHAR2(5)
+        CONSTRAINT CH_CUSTOMER_GENDER CHECK ( customer_gender IN ('M', 'F') )
+);
